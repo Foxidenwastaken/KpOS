@@ -6,7 +6,6 @@ ios/.UninstallDialog.lua
 ios/.command.lua
 ios/.programs.lua
 ios/.update.lua
-ios/kpos_manifest.txt
 ios/lib/package_manager.lua
 ios/packages/README.txt
 ios/packages/minechat/package.lua
