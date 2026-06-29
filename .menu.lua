@@ -3,7 +3,7 @@
 -- Uncomment this if you want to block Ctrl+T termination:
 os.pullEvent = os.pullEventRaw
 
-local OSV = "alpha 0.0.20"
+local OSV = "alpha 0.0.1"
 
 local options = {
     { label = "Command",    path = "ios/.command.lua" },
