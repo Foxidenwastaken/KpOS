@@ -1,149 +1,169 @@
--- Fix: Lua comments use '--', not '#'
+-- KpOS startup menu
+
+-- Uncomment this if you want to block Ctrl+T termination:
 -- os.pullEvent = os.pullEventRaw
 
--- system vars
-ProgramCount = 7
-OSV = "alpha 0.0.1"
+local OSV = "alpha 0.0.1"
 
--- 1. Define our functions first so Lua knows they exist
-local w, h = term.getSize()
+local options = {
+    {
+        label = "Command",
+        path = "ios/.command.lua",
+    },
+    {
+        label = "Programs",
+        path = "ios/.programs.lua",
+    },
+    {
+        label = "Update",
+        path = "ios/.update.lua",
+    },
+    {
+        label = "InstallPKG",
+        path = "ios/install_package.lua",
+    },
+    {
+        label = "Shutdown",
+        action = function()
+            term.clear()
+            term.setCursorPos(1, 1)
+            print("> shutdown")
+            print("Goodbye")
+            sleep(1)
+            os.shutdown()
+        end,
+    },
+    {
+        label = "Reboot",
+        action = function()
+            os.reboot()
+        end,
+    },
+    {
+        label = "Uninstall",
+        path = "ios/.UninstallDialog.lua",
+    },
+}
 
-local function printCentered(y, s)
-   local x = math.floor((w - string.len(s)) / 2)
-   term.setCursorPos(x, y)
-   term.clearLine()
-   term.write(s)
+local selected = 1
+
+local function getSize()
+    return term.getSize()
 end
 
-local nOption = 1
+local function printCentered(y, text)
+    local w, _ = getSize()
+    local x = math.floor((w - #text) / 2) + 1
+
+    if x < 1 then
+        x = 1
+    end
+
+    term.setCursorPos(x, y)
+    term.clearLine()
+    term.write(text)
+end
 
 local function drawMenu()
-   term.clear()
-   term.setCursorPos(1, 1)
-   term.write("KpOS " .. OSV)
-   term.setCursorPos(1, 2)
+    local w, h = getSize()
 
-   if shell.resolve("id") then
-      shell.run("id")
-   else
-      term.write("ID: Unknown")
-   end
+    term.clear()
+    term.setCursorPos(1, 1)
+    term.write("KpOS " .. OSV)
 
-   term.setCursorPos(1, 3)
+    term.setCursorPos(1, 2)
+    if shell and shell.resolve and shell.resolve("id") then
+        shell.run("id")
+    else
+        term.write("ID: " .. tostring(os.getComputerID()))
+    end
 
-   term.setCursorPos(w-7, 1)
-   if nOption == 1 then
-      term.write("Command")
-   elseif nOption == 2 then
-      term.write("Programs")
-   elseif nOption == 3 then
-      term.write("update")
-   elseif nOption == 4 then
-      term.write("InstallPKG")
-   elseif nOption == 5 then
-      term.write("shutdown")
-   elseif nOption == 6 then
-      term.write("reboot")
-   elseif nOption == 7 then
-      term.write("uninstall")
-   end
-end
+    local currentLabel = options[selected].label
+    term.setCursorPos(math.max(1, w - #currentLabel + 1), 1)
+    term.write(currentLabel)
 
--- GUI
-local function drawFrontend()
-   printCentered(math.floor(h/2) - 3, "")
-   printCentered(math.floor(h/2) - 2, "Start Menu")
-   printCentered(math.floor(h/2) - 1, "")
-   printCentered(math.floor(h/2) + 0, ((nOption == 1) and "[ Command  ]") or "Command ")
-   printCentered(math.floor(h/2) + 1, ((nOption == 2) and "[ Programs ]") or "Programs")
-   printCentered(math.floor(h/2) + 2, ((nOption == 3) and "[ Update   ]") or "Update  ")
-   printCentered(math.floor(h/2) + 2, ((nOption == 4) and "[ InstallPKG ]") or "InstallPKG")
-   printCentered(math.floor(h/2) + 3, ((nOption == 5) and "[ Shutdown ]") or "Shutdown")
-   printCentered(math.floor(h/2) + 4, ((nOption == 6) and "[ Reboot   ]") or "Reboot  ")
-   printCentered(math.floor(h/2) + 5, ((nOption == 7) and "[ Uninstall ]") or " Uninstall")
-   printCentered(math.floor(h/2) + 6, "")
+    local startY = math.floor(h / 2) - math.floor(#options / 2)
+
+    printCentered(startY - 2, "")
+    printCentered(startY - 1, "Start Menu")
+    printCentered(startY, "")
+
+    for i, option in ipairs(options) do
+        local label = option.label
+
+        if i == selected then
+            label = "[ " .. label .. " ]"
+        else
+            label = "  " .. label .. "  "
+        end
+
+        printCentered(startY + i, label)
+    end
+
+    printCentered(startY + #options + 1, "")
 end
 
 local function runSelectedProgram()
-   local path = ""
+    local option = options[selected]
 
-   if nOption == 1 then
-      path = "ios/.command.lua"
-   elseif nOption == 2 then
-      path = "ios/.programs.lua"
-   elseif nOption == 3 then
-      path = "ios/.update.lua"
-   elseif nOption == 4 then
-      path = "ios/install_package.lua"
-   elseif nOption == 5 then
-   term.write(">shutdown")
-   term.setCursorPos(1, 2)
-   term.write("Goodbye")
-   sleep(3)
-      os.shutdown()
-   elseif nOption == 6 then
-      os.reboot()
-   else
-      path = "ios/.UninstallDialog.lua"
-   end
+    if option.action then
+        option.action()
+        return
+    end
 
-   if fs.exists(path) then
-      shell.run(path)
-   else
-      error("Missing system file: " .. path)
-   end
-end -- FIX 2: Added missing end here to close runSelectedProgram
+    if not option.path then
+        error("Menu option has no path/action: " .. tostring(option.label))
+    end
 
--- 2. Wrap your main runtime loop/execution inside the main function
+    if not fs.exists(option.path) then
+        error("Missing system file: " .. option.path)
+    end
+
+    shell.run(option.path)
+end
+
 local function main()
-   drawMenu()
-   drawFrontend()
+    while true do
+        drawMenu()
 
-   while true do
-      local e, p = os.pullEvent()
-      if e == "key" then
-         local key = p
+        local event, key = os.pullEvent("key")
 
-         if key == keys.s or key == keys.down then
-            if nOption < ProgramCount then
-               nOption = nOption + 1
-               drawMenu()
-               drawFrontend()
+        if key == keys.s or key == keys.down then
+            selected = selected + 1
+
+            if selected > #options then
+                selected = 1
             end
-         elseif key == keys.w or key == keys.up then
-            if nOption > ProgramCount - 6 then
-               nOption = nOption - 1
-               drawMenu()
-               drawFrontend()
+        elseif key == keys.w or key == keys.up then
+            selected = selected - 1
+
+            if selected < 1 then
+                selected = #options
             end
-         elseif key == keys.enter then
+        elseif key == keys.enter then
             break
-         end
-      end
-   end
+        end
+    end
 
-   term.clear()
-   term.setCursorPos(1, 1)
-
-   -- FIX 3: Moved execution to happen safely after menu selection wraps up
-   runSelectedProgram()
-end -- FIX 1: Added missing end here to close main()
-
--- 3. Run the main function safely with pcall
-local success, errorMessage = pcall(main)
-
--- 4. Check the result
-if not success then
     term.clear()
     term.setCursorPos(1, 1)
+    runSelectedProgram()
+end
+
+local ok, err = pcall(main)
+
+if not ok then
+    term.clear()
+    term.setCursorPos(1, 1)
+
     print("KpOS has encountered a problem:")
-    print(errorMessage)
+    print(tostring(err))
 
     for i = 10, 1, -1 do
-        term.setCursorPos(1, 5) -- Bumped to line 5 so it doesn't overwrite long errors
+        term.setCursorPos(1, 5)
         term.clearLine()
         term.write("Rebooting in " .. i)
-        os.sleep(1)
+        sleep(1)
     end
 
     os.reboot()
