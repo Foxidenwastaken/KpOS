@@ -3,6 +3,9 @@
 -- Uncomment this if you want to block Ctrl+T termination:
 os.pullEvent = os.pullEventRaw
 
+-- speaker setup
+local speaker = peripheral.find("speaker")
+
 local OSV = "alpha 0.0.1"
 
 local options = {
@@ -106,18 +109,35 @@ local function main()
         local _, key = os.pullEvent("key")
 
         if key == keys.s or key == keys.down then
+            if speaker then
+                speaker.playSound("minecraft:block.amethyst_block.step", 1.0, 1.0)
+            end
+
             selected = selected + 1
             if selected > #options then
+
                 selected = 1
+
+
             end
 
         elseif key == keys.w or key == keys.up then
+            if speaker then
+                speaker.playSound("minecraft:block.amethyst_block.step", 1.0, 1.0)
+            end
+
             selected = selected - 1
             if selected < 1 then
                 selected = #options
+
+
             end
 
         elseif key == keys.enter then
+
+            if speaker then
+                speaker.playSound("minecraft:ui.loom.select_pattern", 1.0, 1.0)
+            end
             break
         end
     end

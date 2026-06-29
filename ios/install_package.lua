@@ -5,13 +5,16 @@
 --   /list       -> plain text package names, one per line
 --   /<package>  -> Lua bundle with files table
 --
--- Example API folder package:
---   packages/minechat/programs/Minechat/Minechat.lua
---   packages/minechat/packages/package.lua
+-- This UI can now install AND uninstall packages.
 --
--- That installs into:
---   ios/programs/Minechat/Minechat.lua
---   ios/packages/package.lua
+-- Install:
+--   Downloads /<package> from the API and writes all bundle files into /ios.
+--
+-- Uninstall:
+--   Finds ios/packages/<packageID>/package.lua
+--   Reads entry = "ios/programs/<ProgramName>/<main file>.lua"
+--   Deletes ios/programs/<ProgramName>
+--   Deletes ios/packages/<packageID>
 
 -- CHANGE THIS TO YOUR REAL API URL
 local API_URL = "http://192.168.12.108:5000"
@@ -34,6 +37,22 @@ local function normalizeApiUrl(url)
     end
 
     return url
+end
+
+local function normalizePath(path)
+    path = tostring(path or "")
+    path = path:gsub("\\", "/")
+    path = path:gsub("^/+", "")
+
+    while path:find("//") do
+        path = path:gsub("//", "/")
+    end
+
+    return path
+end
+
+local function startsWith(text, prefix)
+    return text:sub(1, #prefix) == prefix
 end
 
 API_URL = normalizeApiUrl(API_URL)
@@ -91,7 +110,7 @@ local function drawStatus()
 
     term.setCursorPos(1, h)
     term.clearLine()
-    term.write("W/S or arrows = move Enter = install R = refresh Q = back")
+    term.write("W/S = move Enter = install U = uninstall R = refresh Q = back")
 end
 
 local function drawMenu()
@@ -132,7 +151,7 @@ local function showMessage(title, lines)
     local startY = math.floor(h / 2) - math.floor(#lines / 2)
 
     for i, line in ipairs(lines) do
-        printCentered(startY + i - 1, line)
+        printCentered(startY + i - 1, tostring(line))
     end
 
     printCentered(h, "Press any key to continue...")
@@ -204,6 +223,8 @@ local function getInstallRoot()
 end
 
 local function combine(root, path)
+    path = normalizePath(path)
+
     if root == "." then
         return path
     end
@@ -321,6 +342,226 @@ local function installPackage(packageName)
     end
 end
 
+local function readManifest(manifestPath)
+    local fn, loadErr = loadfile(manifestPath)
+
+    if not fn then
+        return nil, loadErr
+    end
+
+    local ok, manifest = pcall(fn)
+
+    if not ok then
+        return nil, manifest
+    end
+
+    if type(manifest) ~= "table" then
+        return nil, "package.lua did not return a table"
+    end
+
+    return manifest
+end
+
+local function findInstalledPackage(packageName)
+    local installRoot = getInstallRoot()
+    local packageRoot = combine(installRoot, "packages")
+    local query = tostring(packageName or ""):lower()
+
+    if not fs.exists(packageRoot) or not fs.isDir(packageRoot) then
+        return nil, "Package folder does not exist: " .. packageRoot
+    end
+
+    for _, folderName in ipairs(fs.list(packageRoot)) do
+        local packageDir = fs.combine(packageRoot, folderName)
+
+        if fs.isDir(packageDir) then
+            local manifestPath = fs.combine(packageDir, "package.lua")
+
+            if fs.exists(manifestPath) and not fs.isDir(manifestPath) then
+                local manifest, err = readManifest(manifestPath)
+
+                if manifest then
+                    local id = tostring(manifest.id or folderName)
+                    local name = tostring(manifest.name or id)
+
+                    if folderName:lower() == query or id:lower() == query or name:lower() == query then
+                        return {
+                            id = id,
+                            name = name,
+                            version = tostring(manifest.version or "unknown"),
+                            entry = normalizePath(manifest.entry or ""),
+                            packageDir = packageDir,
+                            manifestPath = manifestPath,
+                        }
+                    end
+                end
+            end
+        end
+    end
+
+    return nil, "Package is not installed: " .. tostring(packageName)
+end
+
+local function getProgramFolderFromEntry(entry)
+    local installRoot = getInstallRoot()
+    entry = normalizePath(entry)
+
+    if entry == "" then
+        return nil, "Manifest has no entry field."
+    end
+
+    -- Support both:
+    --   ios/programs/Minechat/Minechat.lua
+    --   programs/Minechat/Minechat.lua
+    if installRoot ~= "." and startsWith(entry, "programs/") then
+        entry = fs.combine(installRoot, entry)
+    end
+
+    local programRoot = combine(installRoot, "programs")
+    programRoot = normalizePath(programRoot)
+
+    if not startsWith(entry, programRoot .. "/") then
+        return nil, "Entry is not inside " .. programRoot .. ": " .. entry
+    end
+
+    local programDir = normalizePath(fs.getDir(entry))
+
+    if programDir == "" or programDir == programRoot then
+        return nil, "Refusing to delete unsafe program folder: " .. programDir
+    end
+
+    if not startsWith(programDir, programRoot .. "/") then
+        return nil, "Refusing to delete outside programs folder: " .. programDir
+    end
+
+    return programDir
+end
+
+local function isSafePackageDir(path)
+    local packageRoot = normalizePath(combine(getInstallRoot(), "packages"))
+    path = normalizePath(path)
+
+    if path == "" or path == "/" or path == "." then
+        return false
+    end
+
+    if path == packageRoot then
+        return false
+    end
+
+    if path:find("%.%.") then
+        return false
+    end
+
+    return startsWith(path, packageRoot .. "/")
+end
+
+local function isSafeProgramDir(path)
+    local programRoot = normalizePath(combine(getInstallRoot(), "programs"))
+    path = normalizePath(path)
+
+    if path == "" or path == "/" or path == "." then
+        return false
+    end
+
+    if path == programRoot then
+        return false
+    end
+
+    if path:find("%.%.") then
+        return false
+    end
+
+    return startsWith(path, programRoot .. "/")
+end
+
+local function confirmUninstall(pkg, programDir)
+    term.clear()
+    drawHeader("Uninstall")
+
+    printCentered(5, "Uninstall package?")
+    printCentered(7, pkg.name .. " (" .. pkg.id .. ")")
+    printCentered(9, "Deletes:")
+    printCentered(10, programDir or "No program folder found")
+    printCentered(11, pkg.packageDir)
+
+    term.setCursorPos(1, 14)
+    term.clearLine()
+    print("Type the package id to confirm:")
+    print(pkg.id)
+    write("> ")
+
+    local answer = read()
+    return answer == pkg.id
+end
+
+local function uninstallPackage(packageName)
+    local pkg, findErr = findInstalledPackage(packageName)
+
+    if not pkg then
+        showMessage("Uninstall Failed", {
+            findErr or "Package not found.",
+        })
+        status = "Package not installed: " .. tostring(packageName)
+        return
+    end
+
+    local programDir, programErr = getProgramFolderFromEntry(pkg.entry)
+
+    if not programDir then
+        showMessage("Uninstall Failed", {
+            "Could not find program folder.",
+            programErr or "Unknown error",
+        })
+        status = "Uninstall failed."
+        return
+    end
+
+    if not isSafeProgramDir(programDir) then
+        showMessage("Uninstall Failed", {
+            "Unsafe program delete path:",
+            programDir,
+        })
+        status = "Uninstall failed."
+        return
+    end
+
+    if not isSafePackageDir(pkg.packageDir) then
+        showMessage("Uninstall Failed", {
+            "Unsafe package delete path:",
+            pkg.packageDir,
+        })
+        status = "Uninstall failed."
+        return
+    end
+
+    if not confirmUninstall(pkg, programDir) then
+        status = "Uninstall cancelled."
+        return
+    end
+
+    local deletedProgram = false
+    local deletedPackage = false
+
+    if fs.exists(programDir) then
+        fs.delete(programDir)
+        deletedProgram = true
+    end
+
+    if fs.exists(pkg.packageDir) then
+        fs.delete(pkg.packageDir)
+        deletedPackage = true
+    end
+
+    showMessage("Uninstall Complete", {
+        "Package: " .. pkg.name,
+        "Program removed: " .. tostring(deletedProgram),
+        "Manifest removed: " .. tostring(deletedPackage),
+    })
+
+    status = "Uninstalled " .. pkg.name .. "."
+end
+
 local function main()
     loadPackageList()
 
@@ -356,6 +597,11 @@ local function main()
             term.clear()
             term.setCursorPos(1, 1)
             shell.run("exit.lua")
+
+        elseif key == keys.u then
+            if #packages > 0 then
+                uninstallPackage(packages[selected])
+            end
 
         elseif key == keys.enter then
             if #packages > 0 then

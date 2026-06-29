@@ -93,7 +93,7 @@ local function runSelectedProgram()
    print("")
    print("Press any key to return to KpOS.")
    os.pullEvent("key")
-   shell.run(".menu")
+   shell.run(".menu.lua")
 end
 
 local function main()
