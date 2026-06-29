@@ -8,9 +8,7 @@ ios/.programs.lua
 ios/.update.lua
 ios/lib/package_manager.lua
 ios/packages/README.txt
-ios/packages/minechat/package.lua
 ios/pkg.lua
-ios/programs/Minechat/Minechat.lua
 ios/install_package.lua
 startup.lua
-test.lua
+
