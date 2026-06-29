@@ -1,6 +1,7 @@
 print("this is currently in beta! expect bugs")
 print("1: update os")
 print("2: update package[currently unavailable]")
+print("q: exit")
 write("> ")
 
 local choice = read()
@@ -23,6 +24,9 @@ if choice == "1" then
 
 elseif choice == "2" then
     print("Package updates are currently unavailable.")
+
+elseif choice == "q" then
+    shell.run(".menu.lua")
 
 else
     print("Invalid option.")

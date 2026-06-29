@@ -4,7 +4,7 @@ print("Welcome to KpOS")
 print("loading...")
 term.setCursorPos(1,3)
 sleep(1)
-textutils.slowPrint("########")
+textutils.slowPrint("#####")
 sleep(1)
 shell.run(".menu")
 
