@@ -1,27 +1,15 @@
 -- KpOS startup menu
 
 -- Uncomment this if you want to block Ctrl+T termination:
--- os.pullEvent = os.pullEventRaw
+os.pullEvent = os.pullEventRaw
 
 local OSV = "alpha 0.0.1"
 
 local options = {
-    {
-        label = "Command",
-        path = "ios/.command.lua",
-    },
-    {
-        label = "Programs",
-        path = "ios/.programs.lua",
-    },
-    {
-        label = "Update",
-        path = "ios/.update.lua",
-    },
-    {
-        label = "InstallPKG",
-        path = "ios/install_package.lua",
-    },
+    { label = "Command",    path = "ios/.command.lua" },
+    { label = "Programs",   path = "ios/.programs.lua" },
+    { label = "Update",     path = "ios/.update.lua" },
+    { label = "InstallPKG", path = "ios/install_package.lua" },
     {
         label = "Shutdown",
         action = function()
@@ -39,22 +27,19 @@ local options = {
             os.reboot()
         end,
     },
-    {
-        label = "Uninstall",
-        path = "ios/.UninstallDialog.lua",
-    },
+    { label = "Uninstall",  path = "ios/.UninstallDialog.lua" },
 }
 
 local selected = 1
 
-local function getSize()
-    return term.getSize()
-end
-
 local function printCentered(y, text)
-    local w, _ = getSize()
-    local x = math.floor((w - #text) / 2) + 1
+    local w, h = term.getSize()
 
+    if y < 1 or y > h then
+        return
+    end
+
+    local x = math.floor((w - #text) / 2) + 1
     if x < 1 then
         x = 1
     end
@@ -65,42 +50,34 @@ local function printCentered(y, text)
 end
 
 local function drawMenu()
-    local w, h = getSize()
+    local w, h = term.getSize()
 
     term.clear()
+
     term.setCursorPos(1, 1)
     term.write("KpOS " .. OSV)
 
-    term.setCursorPos(1, 2)
-    if shell and shell.resolve and shell.resolve("id") then
-        shell.run("id")
-    else
-        term.write("ID: " .. tostring(os.getComputerID()))
-    end
-
     local currentLabel = options[selected].label
-    term.setCursorPos(math.max(1, w - #currentLabel + 1), 1)
+    term.setCursorPos(math.max(1, w - #currentLabel), 1)
     term.write(currentLabel)
 
-    local startY = math.floor(h / 2) - math.floor(#options / 2)
+    term.setCursorPos(1, 2)
+    term.write("This is computer #" .. tostring(os.getComputerID()))
 
-    printCentered(startY - 2, "")
-    printCentered(startY - 1, "Start Menu")
-    printCentered(startY, "")
+    local startY = math.floor((h - #options) / 2)
+
+    printCentered(startY - 2, "Start Menu")
 
     for i, option in ipairs(options) do
-        local label = option.label
+        local text = option.label
 
         if i == selected then
-            label = "[ " .. label .. " ]"
-        else
-            label = "  " .. label .. "  "
+            text = "[ " .. text .. " ]"
         end
 
-        printCentered(startY + i, label)
+        -- Each option gets its own line.
+        printCentered(startY + i, text)
     end
-
-    printCentered(startY + #options + 1, "")
 end
 
 local function runSelectedProgram()
@@ -126,20 +103,20 @@ local function main()
     while true do
         drawMenu()
 
-        local event, key = os.pullEvent("key")
+        local _, key = os.pullEvent("key")
 
         if key == keys.s or key == keys.down then
             selected = selected + 1
-
             if selected > #options then
                 selected = 1
             end
+
         elseif key == keys.w or key == keys.up then
             selected = selected - 1
-
             if selected < 1 then
                 selected = #options
             end
+
         elseif key == keys.enter then
             break
         end
