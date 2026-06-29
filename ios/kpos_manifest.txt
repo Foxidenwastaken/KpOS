@@ -1,9 +1,0 @@
-.UninstallDialog.lua
-.command.lua
-.programs.lua
-.update.lua
-lib/package_manager.lua
-packages/README.txt
-packages/minechat/package.lua
-pkg.lua
-programs/Minechat/Minechat.lua

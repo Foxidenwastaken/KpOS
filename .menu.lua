@@ -2,7 +2,7 @@
 -- os.pullEvent = os.pullEventRaw
 
 -- system vars
-ProgramCount = 6
+ProgramCount = 7
 OSV = "alpha 0.0.1"
 
 -- 1. Define our functions first so Lua knows they exist
@@ -39,10 +39,12 @@ local function drawMenu()
    elseif nOption == 3 then
       term.write("update")
    elseif nOption == 4 then
-      term.write("shutdown")
+      term.write("InstallPKG")
    elseif nOption == 5 then
-      term.write("reboot")
+      term.write("shutdown")
    elseif nOption == 6 then
+      term.write("reboot")
+   elseif nOption == 7 then
       term.write("uninstall")
    end
 end
@@ -55,9 +57,10 @@ local function drawFrontend()
    printCentered(math.floor(h/2) + 0, ((nOption == 1) and "[ Command  ]") or "Command ")
    printCentered(math.floor(h/2) + 1, ((nOption == 2) and "[ Programs ]") or "Programs")
    printCentered(math.floor(h/2) + 2, ((nOption == 3) and "[ Update   ]") or "Update  ")
-   printCentered(math.floor(h/2) + 3, ((nOption == 4) and "[ Shutdown ]") or "Shutdown")
-   printCentered(math.floor(h/2) + 4, ((nOption == 5) and "[ Reboot   ]") or "Reboot  ")
-   printCentered(math.floor(h/2) + 5, ((nOption == 6) and "[ Uninstall ]") or " Uninstall")
+   printCentered(math.floor(h/2) + 2, ((nOption == 4) and "[ InstallPKG ]") or "InstallPKG")
+   printCentered(math.floor(h/2) + 3, ((nOption == 5) and "[ Shutdown ]") or "Shutdown")
+   printCentered(math.floor(h/2) + 4, ((nOption == 6) and "[ Reboot   ]") or "Reboot  ")
+   printCentered(math.floor(h/2) + 5, ((nOption == 7) and "[ Uninstall ]") or " Uninstall")
    printCentered(math.floor(h/2) + 6, "")
 end
 
@@ -71,12 +74,14 @@ local function runSelectedProgram()
    elseif nOption == 3 then
       path = "ios/.update.lua"
    elseif nOption == 4 then
+      path = "ios/install_package.lua"
+   elseif nOption == 5 then
    term.write(">shutdown")
    term.setCursorPos(1, 2)
    term.write("Goodbye")
    sleep(3)
       os.shutdown()
-   elseif nOption == 5 then
+   elseif nOption == 6 then
       os.reboot()
    else
       path = "ios/.UninstallDialog.lua"
@@ -106,7 +111,7 @@ local function main()
                drawFrontend()
             end
          elseif key == keys.w or key == keys.up then
-            if nOption > ProgramCount - 5 then
+            if nOption > ProgramCount - 6 then
                nOption = nOption - 1
                drawMenu()
                drawFrontend()
