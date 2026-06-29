@@ -11,6 +11,6 @@ ios/packages/README.txt
 ios/packages/minechat/package.lua
 ios/pkg.lua
 ios/programs/Minechat/Minechat.lua
-ios/programs/Minechat/install_package.lua
+ios/install_package.lua
 startup.lua
 test.lua
